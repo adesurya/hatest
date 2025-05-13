@@ -1,7 +1,10 @@
+// File: routes/userRoutes.js (FIXED)
+
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { authenticate, isAdmin } = require('../middleware/auth');
+const { canAccessProfile, canViewProfile } = require('../middleware/profileAccess');
 const validation = require('../utils/validation');
 
 /**
@@ -16,7 +19,13 @@ router.get('/profile', authenticate, userController.getProfile);
  * @desc    Update user profile
  * @access  Private
  */
-router.put('/profile', authenticate, validation.updateProfileValidation, userController.updateProfile);
+router.put(
+  '/profile', 
+  authenticate, 
+  userController.uploadProfilePhotos,
+  validation.updateProfileValidation, 
+  userController.updateProfile
+);
 
 /**
  * @route   PUT /api/users/change-password
@@ -27,16 +36,30 @@ router.put('/change-password', authenticate, validation.changePasswordValidation
 
 /**
  * @route   GET /api/users
- * @desc    Get all users (admin only)
+ * @desc    Get all users with pagination and filters (admin only)
  * @access  Private/Admin
  */
 router.get('/', authenticate, isAdmin, userController.getAllUsers);
 
 /**
  * @route   GET /api/users/:id
- * @desc    Get user by id (admin only)
+ * @desc    Get user by id (admin can access any user, regular user can only access their own profile)
+ * @access  Private
+ */
+router.get('/:id', authenticate, canViewProfile, userController.getUserById);
+
+/**
+ * @route   PUT /api/users/:id
+ * @desc    Update user profile by id (admin only)
  * @access  Private/Admin
  */
-router.get('/:id', authenticate, isAdmin, userController.getUserById);
+router.put(
+  '/:id', 
+  authenticate, 
+  isAdmin,
+  userController.uploadProfilePhotos,
+  validation.adminUpdateProfileValidation, 
+  userController.updateUserById // Pastikan fungsi ini ada di userController
+);
 
 module.exports = router;

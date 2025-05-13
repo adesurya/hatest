@@ -16,7 +16,17 @@ exports.register = async (req, res) => {
       });
     }
     
-    const { full_name, email, phone_number, password, birth_place, birth_date, category } = req.body;
+    const { 
+      full_name, 
+      email, 
+      phone_number, 
+      password, 
+      birth_place, 
+      birth_date, 
+      category,
+      institution,
+      collegium_certificate_number
+    } = req.body;
     
     // Cek apakah email sudah terdaftar
     const existingUser = await User.findByEmail(email);
@@ -36,6 +46,20 @@ exports.register = async (req, res) => {
       });
     }
     
+    // Siapkan path foto jika ada
+    let idCardPhotoPath = null;
+    let profilePhotoPath = null;
+    
+    if (req.files) {
+      if (req.files.id_card_photo) {
+        idCardPhotoPath = `/uploads/id_cards/${req.files.id_card_photo[0].filename}`;
+      }
+      
+      if (req.files.profile_photo) {
+        profilePhotoPath = `/uploads/profiles/${req.files.profile_photo[0].filename}`;
+      }
+    }
+    
     // Buat user baru
     const userData = {
       full_name,
@@ -44,7 +68,12 @@ exports.register = async (req, res) => {
       password,
       birth_place,
       birth_date,
-      category_id: categoryData.id
+      category_id: categoryData.id,
+      institution,
+      collegium_certificate_number,
+      id_card_photo: idCardPhotoPath,
+      profile_photo: profilePhotoPath,
+      membership_status: 'inactive' // Default to inactive until approved by admin
     };
     
     const newUser = await User.create(userData);

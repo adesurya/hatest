@@ -10,6 +10,21 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const examRoutes = require('./routes/examRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const doctorRoutes = require('./routes/doctorRoutes');
+const dokterMudaRoutes = require('./routes/dokterMudaRoutes');
+const medicalFacultyRoutes = require('./routes/medicalFacultyRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const kurikulumRoutes = require('./routes/kurikulumRoutes');
+const sliderRoutes = require('./routes/sliderRoutes');
+const agendaRoutes = require('./routes/agendaRoutes');
+const aboutProfileRoutes = require('./routes/aboutProfileRoutes');
+const articleRoutes = require('./routes/articleRoutes');
+const organizationRoutes = require('./routes/organizationRoutes');
+const benefitRoutes = require('./routes/benefitRoutes');
+const testimonialRoutes = require('./routes/testimonialRoutes');
+const visionMissionRoutes = require('./routes/visionMissionRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const organizationHistoryRoutes = require('./routes/organizationHistoryRoutes');
 
 // Initialize app
 const app = express();
@@ -33,6 +48,21 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/dokter-muda', dokterMudaRoutes);
+app.use('/api/medical-faculties', medicalFacultyRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/kurikulum', kurikulumRoutes); 
+app.use('/api/sliders', sliderRoutes);
+app.use('/api/agenda', agendaRoutes);
+app.use('/api/about-profiles', aboutProfileRoutes);
+app.use('/api/articles', articleRoutes);
+app.use('/api/organization', organizationRoutes);
+app.use('/api/benefits', benefitRoutes);
+app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/vision-mission', visionMissionRoutes);
+app.use('/api/contacts', contactRoutes);
+app.use('/api/organization-history', organizationHistoryRoutes);
 
 // Home route
 app.get('/', (req, res) => {
