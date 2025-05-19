@@ -37,7 +37,7 @@ class EmailService {
   
   // Kirim email reset password
   static async sendResetPasswordEmail(email, fullName, token) {
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/api/auth/reset-password/${token}`;
     
     const mailOptions = {
       from: process.env.EMAIL_FROM,

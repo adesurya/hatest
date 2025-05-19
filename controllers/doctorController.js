@@ -1,10 +1,12 @@
+// Modifikasi pada doctorController.js untuk menangani path file frontend
+
 const Doctor = require('../models/Doctor');
 const { validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Konfigurasi multer untuk upload file
+// Konfigurasi multer untuk upload file - tetap menggunakan memoryStorage()
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
@@ -40,7 +42,7 @@ const upload = multer({
   { name: 'supporting_document', maxCount: 1 }
 ]);
 
-// Middleware upload file
+// Middleware upload file - tidak ada perubahan
 exports.uploadFiles = (req, res, next) => {
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
@@ -59,7 +61,7 @@ exports.uploadFiles = (req, res, next) => {
   });
 };
 
-// Dapatkan semua data dokter
+// Dapatkan semua data dokter - tidak ada perubahan
 exports.getAllDoctors = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -100,7 +102,7 @@ exports.getAllDoctors = async (req, res) => {
   }
 };
 
-// Dapatkan dokter berdasarkan ID
+// Dapatkan dokter berdasarkan ID - tidak ada perubahan
 exports.getDoctorById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -134,7 +136,7 @@ exports.getDoctorById = async (req, res) => {
   }
 };
 
-// Buat data dokter baru (admin only)
+// Buat data dokter baru (admin only) - PERUBAHAN untuk path file frontend
 exports.createDoctor = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -162,7 +164,10 @@ exports.createDoctor = async (req, res) => {
       practice_location, 
       longitude, 
       latitude, 
-      verification_status
+      verification_status,
+      // Tambahkan field path file dari frontend
+      profile_photo_path,
+      supporting_document_path
     } = req.body;
     
     // Cek apakah STR number sudah digunakan
@@ -218,8 +223,21 @@ exports.createDoctor = async (req, res) => {
     const profilePhoto = req.files && req.files.profile_photo ? req.files.profile_photo[0] : null;
     const supportingDocument = req.files && req.files.supporting_document ? req.files.supporting_document[0] : null;
     
-    // Buat dokter baru
-    const newDoctor = await Doctor.create(doctorData, profilePhoto, supportingDocument);
+    // Log informasi untuk debugging
+    console.log("Create doctor - File information:");
+    console.log("- Profile photo from upload:", profilePhoto ? "Yes" : "No");
+    console.log("- Supporting document from upload:", supportingDocument ? "Yes" : "No");
+    console.log("- Frontend profile_photo_path:", profile_photo_path);
+    console.log("- Frontend supporting_document_path:", supporting_document_path);
+    
+    // PERUBAHAN: Tambahkan parameter untuk path file
+    const newDoctor = await Doctor.create(
+      doctorData, 
+      profilePhoto, 
+      supportingDocument, 
+      profile_photo_path, 
+      supporting_document_path
+    );
     
     res.status(201).json({
       success: true,
@@ -235,7 +253,7 @@ exports.createDoctor = async (req, res) => {
   }
 };
 
-// Update data dokter (admin only)
+// Update data dokter (admin only) - PERUBAHAN untuk path file frontend
 exports.updateDoctor = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -276,7 +294,12 @@ exports.updateDoctor = async (req, res) => {
       longitude, 
       latitude, 
       verification_status,
-      verification_notes
+      verification_notes,
+      // Tambahkan field path file dari frontend
+      profile_photo_path,
+      supporting_document_path,
+      // Flag untuk menghapus foto profil
+      remove_profile
     } = req.body;
     
     // Cek apakah STR number sudah digunakan oleh dokter lain
@@ -332,15 +355,32 @@ exports.updateDoctor = async (req, res) => {
       latitude: latitude || doctor.latitude,
       verification_status: verification_status || doctor.verification_status,
       verification_notes: verification_notes,
-      updated_by: req.user.id
+      updated_by: req.user.id,
+      // Tambahkan flag untuk menghapus foto profil
+      remove_profile: remove_profile === '1'
     };
     
     // Ambil file yang diupload
     const profilePhoto = req.files && req.files.profile_photo ? req.files.profile_photo[0] : null;
     const supportingDocument = req.files && req.files.supporting_document ? req.files.supporting_document[0] : null;
     
-    // Update dokter
-    const updatedDoctor = await Doctor.update(id, doctorData, profilePhoto, supportingDocument);
+    // Log informasi untuk debugging
+    console.log("Update doctor - File information:");
+    console.log("- Profile photo from upload:", profilePhoto ? "Yes" : "No");
+    console.log("- Supporting document from upload:", supportingDocument ? "Yes" : "No");
+    console.log("- Frontend profile_photo_path:", profile_photo_path);
+    console.log("- Frontend supporting_document_path:", supporting_document_path);
+    console.log("- Remove profile flag:", remove_profile);
+    
+    // PERUBAHAN: Tambahkan parameter untuk path file
+    const updatedDoctor = await Doctor.update(
+      id, 
+      doctorData, 
+      profilePhoto, 
+      supportingDocument, 
+      profile_photo_path, 
+      supporting_document_path
+    );
     
     res.json({
       success: true,
@@ -356,7 +396,7 @@ exports.updateDoctor = async (req, res) => {
   }
 };
 
-// Update status verifikasi dokter (admin only)
+// Update status verifikasi dokter (admin only) - tidak ada perubahan
 exports.updateVerificationStatus = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -411,7 +451,7 @@ exports.updateVerificationStatus = async (req, res) => {
   }
 };
 
-// Dapatkan riwayat verifikasi dokter (admin only)
+// Dapatkan riwayat verifikasi dokter (admin only) - tidak ada perubahan
 exports.getVerificationHistory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -442,7 +482,7 @@ exports.getVerificationHistory = async (req, res) => {
   }
 };
 
-// Hapus dokter (admin only)
+// Hapus dokter (admin only) - tidak ada perubahan
 exports.deleteDoctor = async (req, res) => {
   try {
     const { id } = req.params;

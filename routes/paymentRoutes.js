@@ -57,6 +57,20 @@ router.post(
 router.post('/callback', paymentController.callbackPayment);
 
 /**
+ * @route   GET /api/payments/return
+ * @desc    Return URL from payment gateway
+ * @access  Public
+ */
+router.get('/return', paymentController.returnPayment);
+
+/**
+ * @route   GET /api/payments/status/:merchantOrderId
+ * @desc    Show payment status page
+ * @access  Public
+ */
+router.get('/status/:merchantOrderId', paymentController.showPaymentStatus);
+
+/**
  * @route   GET /api/payments/admin/transactions
  * @desc    Get all transactions (admin only)
  * @access  Private/Admin
@@ -67,5 +81,14 @@ router.get(
   isAdmin,
   paymentController.getAllTransactions
 );
+
+// Tambahkan endpoint ini ke paymentRoutes.js
+/**
+ * @route   POST /api/payments/test-signature
+ * @desc    Test Duitku signature generation (for debugging only)
+ * @access  Private/Admin
+ */
+router.post('/test-signature', authenticate, isAdmin, paymentController.testDuitkuSignature);
+
 
 module.exports = router;

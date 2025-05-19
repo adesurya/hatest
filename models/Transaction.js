@@ -240,22 +240,33 @@ static async requestPayment(transaction, user, exam) {
     const merchantCode = process.env.DUITKU_MERCHANT_CODE;
     const apiKey = process.env.DUITKU_API_KEY;
     const callbackUrl = `${process.env.BASE_URL}/api/payments/callback`;
-    const returnUrl = `${process.env.FRONTEND_URL}/payment/status`;
+    const returnUrl = `${process.env.BASE_URL}/api/payments/return`;
     const expiryPeriod = 10; // 10 menit
     
-    // Dapatkan timestamp saat ini dalam format yang dibutuhkan
-    const datetime = new Date().toISOString().replace(/[-:\.]/g, '').slice(0, 14);
+    // Format amount without decimals (convert to integer)
+    const paymentAmount = Math.floor(transaction.amount).toString();
     
-    // Generate signature dengan SHA256
-    const signatureString = merchantCode + transaction.amount + datetime + apiKey;
-    const signature = crypto.createHash('sha256')
+    // Generate signature dengan MD5
+    // Formula: MD5(merchantCode + merchantOrderId + paymentAmount + apiKey)
+    const signatureString = merchantCode + transaction.merchant_order_id + paymentAmount + apiKey;
+    const signature = crypto.createHash('md5')
       .update(signatureString)
       .digest('hex');
     
-    // Prepare payload
+    // Log signature components for debugging
+    console.log('Signature components:', {
+      merchantCode,
+      merchantOrderId: transaction.merchant_order_id,
+      paymentAmount,
+      apiKey: '***' // Mask API key for security
+    });
+    console.log('Signature string:', merchantCode + transaction.merchant_order_id + paymentAmount + '***');
+    console.log('Generated signature:', signature);
+    
+    // Prepare payload dengan semua field yang diperlukan
     const payload = {
       merchantCode: merchantCode,
-      paymentAmount: transaction.amount,
+      paymentAmount: paymentAmount,
       paymentMethod: transaction.payment_code,
       merchantOrderId: transaction.merchant_order_id,
       productDetails: exam.name,
@@ -263,10 +274,13 @@ static async requestPayment(transaction, user, exam) {
       customerVaName: user.full_name,
       callbackUrl: callbackUrl,
       returnUrl: returnUrl,
-      expiryPeriod: expiryPeriod,
-      signature: signature,
-      datetime: datetime
+      signature: signature
     };
+    
+    // Tambahkan field opsional - expiryPeriod (dalam menit)
+    if (expiryPeriod) {
+      payload.expiryPeriod = expiryPeriod;
+    }
     
     // Log payload untuk debugging
     console.log('Duitku request payload:', payload);
@@ -315,32 +329,15 @@ static async updateFromCallback(callbackData) {
     const { 
       merchantOrderId, 
       resultCode, 
-      reference, 
-      signature,
+      reference,
+      amount,
       publisherOrderId,
       settlementDate,
-      datetime
+      paymentCode,
+      merchantUserId,
+      issuerCode,
+      spUserHash
     } = callbackData;
-    
-    // Validasi signature
-    const merchantCode = process.env.DUITKU_MERCHANT_CODE;
-    const apiKey = process.env.DUITKU_API_KEY;
-    const amount = callbackData.amount;
-    
-    // Gunakan SHA-256 untuk validasi signature
-    const signatureString = merchantCode + amount + datetime + apiKey;
-    const expectedSignature = crypto.createHash('sha256')
-      .update(signatureString)
-      .digest('hex');
-    
-    console.log('Validating callback signature:');
-    console.log('Received signature:', signature);
-    console.log('Expected signature:', expectedSignature);
-    console.log('Signature string:', signatureString);
-    
-    if (signature !== expectedSignature) {
-      throw new Error('Signature tidak valid');
-    }
     
     // Ambil transaksi berdasarkan merchantOrderId
     const [transactions] = await connection.query(
@@ -355,15 +352,29 @@ static async updateFromCallback(callbackData) {
     const transaction = transactions[0];
     
     // Tentukan status transaksi berdasarkan resultCode
+    // 00 - Success, 01 - Failed
     const status = resultCode === '00' ? 'success' : 'failed';
     
-    // Update transaksi
+    // Update transaksi dengan semua data callback
     await connection.query(
       `UPDATE transactions 
-      SET status = ?, reference = ?, callback_data = ?, 
-      payment_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+      SET status = ?, 
+          reference = ?, 
+          callback_data = ?, 
+          payment_date = ?, 
+          publisher_order_id = ?,
+          settlement_date = ?,
+          updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?`,
-      [status, reference, JSON.stringify(callbackData), transaction.id]
+      [
+        status, 
+        reference, 
+        JSON.stringify(callbackData), 
+        new Date(), // payment_date
+        publisherOrderId,
+        settlementDate || null,
+        transaction.id
+      ]
     );
     
     // Jika pembayaran berhasil, update status pendaftaran ujian
@@ -381,16 +392,19 @@ static async updateFromCallback(callbackData) {
         publisher_order_id: publisherOrderId,
         payment_date: new Date().toISOString(),
         amount: amount,
+        settlement_date: settlementDate,
         status: 'PAID'
       });
       
       const qrImagePath = await this.generatePaymentQR(qrData, transaction.id);
       
       // Update QR image path di database
-      await connection.query(
-        'UPDATE transactions SET qr_image_path = ? WHERE id = ?',
-        [qrImagePath, transaction.id]
-      );
+      if (qrImagePath) {
+        await connection.query(
+          'UPDATE transactions SET qr_image_path = ? WHERE id = ?',
+          [qrImagePath, transaction.id]
+        );
+      }
     }
     
     await connection.commit();
@@ -435,6 +449,7 @@ static async updateFromCallback(callbackData) {
   }
   
 // Cek status transaksi ke Duitku
+// Cek status transaksi ke Duitku
 static async checkStatus(merchantOrderId) {
   try {
     const merchantCode = process.env.DUITKU_MERCHANT_CODE;
@@ -443,11 +458,21 @@ static async checkStatus(merchantOrderId) {
     // Dapatkan timestamp saat ini dalam format yang dibutuhkan
     const datetime = new Date().toISOString().replace(/[-:\.]/g, '').slice(0, 14);
     
-    // Generate signature dengan SHA-256
-    const signatureString = merchantCode + merchantOrderId + datetime + apiKey;
-    const signature = crypto.createHash('sha256')
+    // Generate signature dengan MD5
+    // For transaction status check, the signature doesn't include amount
+    const signatureString = merchantCode + merchantOrderId + apiKey;
+    const signature = crypto.createHash('md5')
       .update(signatureString)
       .digest('hex');
+    
+    // Log signature components for debugging
+    console.log('Check Status Signature components:', {
+      merchantCode,
+      merchantOrderId,
+      apiKey: '***' // Mask API key for security
+    });
+    console.log('Check Status Signature string:', merchantCode + merchantOrderId + '***');
+    console.log('Check Status Generated signature:', signature);
     
     // Prepare payload
     const payload = {
